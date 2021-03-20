@@ -11,6 +11,7 @@ def log10(x):
 
 
 class Result(object):
+
     def __init__(self):
         self.irmse = 0
         self.imae = 0
@@ -45,7 +46,7 @@ class Result(object):
         self.gpu_time = 0
 
     def update(self, irmse, imae, mse, rmse, mae, absrel, squared_rel, lg10, \
-            delta1, delta2, delta3, gpu_time, data_time, silog, photometric=0):
+               delta1, delta2, delta3, gpu_time, data_time, silog, photometric=0):
         self.irmse = irmse
         self.imae = imae
         self.mse = mse
@@ -76,25 +77,24 @@ class Result(object):
         self.mae = float(abs_diff.mean())
         self.lg10 = float((log10(output_mm) - log10(target_mm)).abs().mean())
         self.absrel = float((abs_diff / target_mm).mean())
-        self.squared_rel = float(((abs_diff / target_mm)**2).mean())
+        self.squared_rel = float(((abs_diff / target_mm) ** 2).mean())
 
         maxRatio = torch.max(output_mm / target_mm, target_mm / output_mm)
         self.delta1 = float((maxRatio < 1.25).float().mean())
-        self.delta2 = float((maxRatio < 1.25**2).float().mean())
-        self.delta3 = float((maxRatio < 1.25**3).float().mean())
+        self.delta2 = float((maxRatio < 1.25 ** 2).float().mean())
+        self.delta3 = float((maxRatio < 1.25 ** 3).float().mean())
         self.data_time = 0
         self.gpu_time = 0
 
         # silog uses meters
         err_log = torch.log(target[valid_mask]) - torch.log(output[valid_mask])
-        normalized_squared_log = (err_log**2).mean()
+        normalized_squared_log = (err_log ** 2).mean()
         log_mean = err_log.mean()
-        self.silog = math.sqrt(normalized_squared_log -
-                               log_mean * log_mean) * 100
+        self.silog = math.sqrt(normalized_squared_log - log_mean * log_mean) * 100
 
         # convert from meters to km
-        inv_output_km = (1e-3 * output[valid_mask])**(-1)
-        inv_target_km = (1e-3 * target[valid_mask])**(-1)
+        inv_output_km = (1e-3 * output[valid_mask]) ** (-1)
+        inv_target_km = (1e-3 * target[valid_mask]) ** (-1)
         abs_inv_diff = (inv_output_km - inv_target_km).abs()
         self.irmse = math.sqrt((torch.pow(abs_inv_diff, 2)).mean())
         self.imae = float(abs_inv_diff.mean())
@@ -103,6 +103,7 @@ class Result(object):
 
 
 class AverageMeter(object):
+
     def __init__(self):
         self.reset(time_stable=True)
 
@@ -152,33 +153,30 @@ class AverageMeter(object):
         avg = Result()
         if self.time_stable == True:
             if self.count > 0 and self.count - self.time_stable_counter_init > 0:
-                avg.update(
-                    self.sum_irmse / self.count, self.sum_imae / self.count,
-                    self.sum_mse / self.count, self.sum_rmse / self.count,
-                    self.sum_mae / self.count, self.sum_absrel / self.count,
-                    self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
-                    self.sum_delta1 / self.count, self.sum_delta2 / self.count,
-                    self.sum_delta3 / self.count, self.sum_gpu_time / (self.count - self.time_stable_counter_init),
-                    self.sum_data_time / self.count, self.sum_silog / self.count,
-                    self.sum_photometric / self.count)
+                avg.update(self.sum_irmse / self.count, self.sum_imae / self.count,
+                           self.sum_mse / self.count, self.sum_rmse / self.count,
+                           self.sum_mae / self.count, self.sum_absrel / self.count,
+                           self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
+                           self.sum_delta1 / self.count, self.sum_delta2 / self.count,
+                           self.sum_delta3 / self.count,
+                           self.sum_gpu_time / (self.count - self.time_stable_counter_init),
+                           self.sum_data_time / self.count, self.sum_silog / self.count,
+                           self.sum_photometric / self.count)
             elif self.count > 0:
-                avg.update(
-                    self.sum_irmse / self.count, self.sum_imae / self.count,
-                    self.sum_mse / self.count, self.sum_rmse / self.count,
-                    self.sum_mae / self.count, self.sum_absrel / self.count,
-                    self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
-                    self.sum_delta1 / self.count, self.sum_delta2 / self.count,
-                    self.sum_delta3 / self.count, 0,
-                    self.sum_data_time / self.count, self.sum_silog / self.count,
-                    self.sum_photometric / self.count)
+                avg.update(self.sum_irmse / self.count, self.sum_imae / self.count,
+                           self.sum_mse / self.count, self.sum_rmse / self.count,
+                           self.sum_mae / self.count, self.sum_absrel / self.count,
+                           self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
+                           self.sum_delta1 / self.count, self.sum_delta2 / self.count,
+                           self.sum_delta3 / self.count, 0, self.sum_data_time / self.count,
+                           self.sum_silog / self.count, self.sum_photometric / self.count)
         elif self.count > 0:
-            avg.update(
-                self.sum_irmse / self.count, self.sum_imae / self.count,
-                self.sum_mse / self.count, self.sum_rmse / self.count,
-                self.sum_mae / self.count, self.sum_absrel / self.count,
-                self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
-                self.sum_delta1 / self.count, self.sum_delta2 / self.count,
-                self.sum_delta3 / self.count, self.sum_gpu_time / self.count,
-                self.sum_data_time / self.count, self.sum_silog / self.count,
-                self.sum_photometric / self.count)
+            avg.update(self.sum_irmse / self.count, self.sum_imae / self.count,
+                       self.sum_mse / self.count, self.sum_rmse / self.count,
+                       self.sum_mae / self.count, self.sum_absrel / self.count,
+                       self.sum_squared_rel / self.count, self.sum_lg10 / self.count,
+                       self.sum_delta1 / self.count, self.sum_delta2 / self.count,
+                       self.sum_delta3 / self.count, self.sum_gpu_time / self.count,
+                       self.sum_data_time / self.count, self.sum_silog / self.count,
+                       self.sum_photometric / self.count)
         return avg

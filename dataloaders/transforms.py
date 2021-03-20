@@ -1,9 +1,7 @@
-from __future__ import division
 import torch
-import math
-import random
 
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image, ImageEnhance
+
 try:
     import accimage
 except ImportError:
@@ -12,10 +10,6 @@ except ImportError:
 import numpy as np
 import numbers
 import types
-import collections
-import warnings
-
-import scipy.ndimage.interpolation as itpl
 import skimage.transform
 
 
@@ -118,8 +112,7 @@ def adjust_hue(img, hue_factor):
         PIL Image: Hue adjusted image.
     """
     if not (-0.5 <= hue_factor <= 0.5):
-        raise ValueError(
-            'hue_factor is not in [-0.5, 0.5].'.format(hue_factor))
+        raise ValueError('hue_factor is not in [-0.5, 0.5].'.format(hue_factor))
 
     if not _is_pil_image(img):
         raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
@@ -167,7 +160,7 @@ def adjust_gamma(img, gamma, gain=1):
     img = img.convert('RGB')
 
     np_img = np.array(img, dtype=np.float32)
-    np_img = 255 * gain * ((np_img / 255)**gamma)
+    np_img = 255 * gain * ((np_img / 255) ** gamma)
     np_img = np.uint8(np.clip(np_img, 0, 255))
 
     img = Image.fromarray(np_img, 'RGB').convert(input_mode)
@@ -186,6 +179,7 @@ class Compose(object):
         >>>     transforms.ToTensor(),
         >>> ])
     """
+
     def __init__(self, transforms):
         self.transforms = transforms
 
@@ -200,6 +194,7 @@ class ToTensor(object):
 
     Converts a numpy.ndarray (H x W x C) to a torch.FloatTensor of shape (C x H x W).
     """
+
     def __call__(self, img):
         """Convert a ``numpy.ndarray`` to tensor.
 
@@ -219,9 +214,8 @@ class ToTensor(object):
             elif img.ndim == 2:
                 img = torch.from_numpy(img.copy())
             else:
-                raise RuntimeError(
-                    'img should be ndarray with 2 or 3 dimensions. Got {}'.
-                    format(img.ndim))
+                raise RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(
+                    img.ndim))
 
             return img
 
@@ -236,6 +230,7 @@ class NormalizeNumpyArray(object):
         mean (sequence): Sequence of means for each channel.
         std (sequence): Sequence of standard deviations for each channel.
     """
+
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
@@ -267,6 +262,7 @@ class NormalizeTensor(object):
         mean (sequence): Sequence of means for each channel.
         std (sequence): Sequence of standard deviations for each channel.
     """
+
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
@@ -293,6 +289,7 @@ class Rotate(object):
     Args:
         angle (float): The rotation angle in degrees.
     """
+
     def __init__(self, angle):
         self.angle = angle
 
@@ -320,6 +317,7 @@ class Resize(object):
         interpolation (int, optional): Desired interpolation. Default is
             ``PIL.Image.BILINEAR``
     """
+
     def __init__(self, size, interpolation='nearest'):
         assert isinstance(size, float)
         self.size = size
@@ -337,9 +335,7 @@ class Resize(object):
         elif img.ndim == 2:
             return skimage.transform.rescale(img, self.size, order=0)
         else:
-            RuntimeError(
-                'img should be ndarray with 2 or 3 dimensions. Got {}'.format(
-                    img.ndim))
+            RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(img.ndim))
 
 
 class CenterCrop(object):
@@ -350,6 +346,7 @@ class CenterCrop(object):
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
     """
+
     def __init__(self, size):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -401,9 +398,8 @@ class CenterCrop(object):
         elif img.ndim == 2:
             return img[i:i + h, j:j + w]
         else:
-            raise RuntimeError(
-                'img should be ndarray with 2 or 3 dimensions. Got {}'.format(
-                    img.ndim))
+            raise RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(
+                img.ndim))
 
 
 class BottomCrop(object):
@@ -414,6 +410,7 @@ class BottomCrop(object):
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
     """
+
     def __init__(self, size):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -465,9 +462,8 @@ class BottomCrop(object):
         elif img.ndim == 2:
             return img[i:i + h, j:j + w]
         else:
-            raise RuntimeError(
-                'img should be ndarray with 2 or 3 dimensions. Got {}'.format(
-                    img.ndim))
+            raise RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(
+                img.ndim))
 
 
 class RandomCrop(object):
@@ -478,6 +474,7 @@ class RandomCrop(object):
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
     """
+
     def __init__(self, size):
         if isinstance(size, numbers.Number):
             self.size = (int(size), int(size))
@@ -500,8 +497,8 @@ class RandomCrop(object):
         th, tw = output_size
 
         # randomized left and right cropping
-        i = np.random.randint(0, h-th+1)
-        j = np.random.randint(0, w-tw+1)
+        i = np.random.randint(0, h - th + 1)
+        j = np.random.randint(0, w - tw + 1)
 
         return i, j, th, tw
 
@@ -527,9 +524,8 @@ class RandomCrop(object):
         elif img.ndim == 2:
             return img[i:i + h, j:j + w]
         else:
-            raise RuntimeError(
-                'img should be ndarray with 2 or 3 dimensions. Got {}'.format(
-                    img.ndim))
+            raise RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(
+                img.ndim))
 
 
 class Crop(object):
@@ -540,6 +536,7 @@ class Crop(object):
             int instead of sequence like (h, w), a square crop (size, size) is
             made.
     """
+
     def __init__(self, crop):
         self.crop = crop
 
@@ -587,9 +584,8 @@ class Crop(object):
         elif img.ndim == 2:
             return img[y_b:y_t, x_l:x_r]
         else:
-            raise RuntimeError(
-                'img should be ndarray with 2 or 3 dimensions. Got {}'.format(
-                    img.ndim))
+            raise RuntimeError('img should be ndarray with 2 or 3 dimensions. Got {}'.format(
+                img.ndim))
 
 
 class Lambda(object):
@@ -598,8 +594,8 @@ class Lambda(object):
     Args:
         lambd (function): Lambda/function to be used for transform.
     """
+
     def __init__(self, lambd):
-        assert isinstance(lambd, types.LambdaType)
         self.lambd = lambd
 
     def __call__(self, img):
@@ -613,6 +609,7 @@ class HorizontalFlip(object):
         do_flip (boolean): whether or not do horizontal flip.
 
     """
+
     def __init__(self, do_flip):
         self.do_flip = do_flip
 
@@ -646,13 +643,12 @@ class ColorJitter(object):
         hue(float): How much to jitter hue. hue_factor is chosen uniformly from
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
+
     def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
         transforms = []
-        transforms.append(
-            Lambda(lambda img: adjust_brightness(img, brightness)))
+        transforms.append(Lambda(lambda img: adjust_brightness(img, brightness)))
         transforms.append(Lambda(lambda img: adjust_contrast(img, contrast)))
-        transforms.append(
-            Lambda(lambda img: adjust_saturation(img, saturation)))
+        transforms.append(Lambda(lambda img: adjust_saturation(img, saturation)))
         transforms.append(Lambda(lambda img: adjust_hue(img, hue)))
         np.random.shuffle(transforms)
         self.transform = Compose(transforms)

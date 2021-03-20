@@ -1,19 +1,18 @@
-import math
 import os, time
 import shutil
 import torch
 import csv
-import vis_utils
-from metrics import Result
+from penet import vis_utils
+from penet.metrics import Result
 
 fieldnames = [
-    'epoch', 'rmse', 'photo', 'mae', 'irmse', 'imae', 'mse', 'absrel', 'lg10',
-    'silog', 'squared_rel', 'delta1', 'delta2', 'delta3', 'data_time',
-    'gpu_time'
+    'epoch', 'rmse', 'photo', 'mae', 'irmse', 'imae', 'mse', 'absrel', 'lg10', 'silog',
+    'squared_rel', 'delta1', 'delta2', 'delta3', 'data_time', 'gpu_time'
 ]
 
 
 class logger:
+
     def __init__(self, args, prepare=True):
         self.args = args
         output_directory = get_folder_name(args)
@@ -44,33 +43,31 @@ class logger:
                 writer.writeheader()
             print("=> finished creating source code backup.")
 
-    def conditional_print(self, split, i, epoch, lr, n_set, blk_avg_meter,
-                          avg_meter):
+    def conditional_print(self, split, i, epoch, lr, n_set, blk_avg_meter, avg_meter):
         if (i + 1) % self.args.print_freq == 0:
             avg = avg_meter.average()
             blk_avg = blk_avg_meter.average()
             print('=> output: {}'.format(self.output_directory))
-            print(
-                '{split} Epoch: {0} [{1}/{2}]\tlr={lr} '
-                't_Data={blk_avg.data_time:.3f}({average.data_time:.3f}) '
-                't_GPU={blk_avg.gpu_time:.3f}({average.gpu_time:.3f})\n\t'
-                'RMSE={blk_avg.rmse:.2f}({average.rmse:.2f}) '
-                'MAE={blk_avg.mae:.2f}({average.mae:.2f}) '
-                'iRMSE={blk_avg.irmse:.2f}({average.irmse:.2f}) '
-                'iMAE={blk_avg.imae:.2f}({average.imae:.2f})\n\t'
-                'silog={blk_avg.silog:.2f}({average.silog:.2f}) '
-                'squared_rel={blk_avg.squared_rel:.2f}({average.squared_rel:.2f}) '
-                'Delta1={blk_avg.delta1:.3f}({average.delta1:.3f}) '
-                'REL={blk_avg.absrel:.3f}({average.absrel:.3f})\n\t'
-                'Lg10={blk_avg.lg10:.3f}({average.lg10:.3f}) '
-                'Photometric={blk_avg.photometric:.3f}({average.photometric:.3f}) '
-                .format(epoch,
-                        i + 1,
-                        n_set,
-                        lr=lr,
-                        blk_avg=blk_avg,
-                        average=avg,
-                        split=split.capitalize()))
+            print('{split} Epoch: {0} [{1}/{2}]\tlr={lr} '
+                  't_Data={blk_avg.data_time:.3f}({average.data_time:.3f}) '
+                  't_GPU={blk_avg.gpu_time:.3f}({average.gpu_time:.3f})\n\t'
+                  'RMSE={blk_avg.rmse:.2f}({average.rmse:.2f}) '
+                  'MAE={blk_avg.mae:.2f}({average.mae:.2f}) '
+                  'iRMSE={blk_avg.irmse:.2f}({average.irmse:.2f}) '
+                  'iMAE={blk_avg.imae:.2f}({average.imae:.2f})\n\t'
+                  'silog={blk_avg.silog:.2f}({average.silog:.2f}) '
+                  'squared_rel={blk_avg.squared_rel:.2f}({average.squared_rel:.2f}) '
+                  'Delta1={blk_avg.delta1:.3f}({average.delta1:.3f}) '
+                  'REL={blk_avg.absrel:.3f}({average.absrel:.3f})\n\t'
+                  'Lg10={blk_avg.lg10:.3f}({average.lg10:.3f}) '
+                  'Photometric={blk_avg.photometric:.3f}({average.photometric:.3f}) '.format(
+                epoch,
+                i + 1,
+                n_set,
+                lr=lr,
+                blk_avg=blk_avg,
+                average=avg,
+                split=split.capitalize()))
             blk_avg_meter.reset(False)
 
     def conditional_save_info(self, split, average_meter, epoch):
@@ -90,37 +87,23 @@ class logger:
         with open(csvfile_name, 'a') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writerow({
-                'epoch': epoch,
-                'rmse': avg.rmse,
-                'photo': avg.photometric,
-                'mae': avg.mae,
-                'irmse': avg.irmse,
-                'imae': avg.imae,
-                'mse': avg.mse,
-                'silog': avg.silog,
-                'squared_rel': avg.squared_rel,
-                'absrel': avg.absrel,
-                'lg10': avg.lg10,
-                'delta1': avg.delta1,
-                'delta2': avg.delta2,
-                'delta3': avg.delta3,
-                'gpu_time': avg.gpu_time,
-                'data_time': avg.data_time
+                'epoch': epoch, 'rmse': avg.rmse, 'photo': avg.photometric, 'mae': avg.mae,
+                'irmse': avg.irmse, 'imae': avg.imae, 'mse': avg.mse, 'silog': avg.silog,
+                'squared_rel': avg.squared_rel, 'absrel': avg.absrel, 'lg10': avg.lg10,
+                'delta1': avg.delta1, 'delta2': avg.delta2, 'delta3': avg.delta3,
+                'gpu_time': avg.gpu_time, 'data_time': avg.data_time
             })
         return avg
 
     def save_single_txt(self, filename, result, epoch):
         with open(filename, 'w') as txtfile:
             txtfile.write(
-                ("rank_metric={}\n" + "epoch={}\n" + "rmse={:.3f}\n" +
-                 "mae={:.3f}\n" + "silog={:.3f}\n" + "squared_rel={:.3f}\n" +
-                 "irmse={:.3f}\n" + "imae={:.3f}\n" + "mse={:.3f}\n" +
-                 "absrel={:.3f}\n" + "lg10={:.3f}\n" + "delta1={:.3f}\n" +
-                 "t_gpu={:.4f}").format(self.args.rank_metric, epoch,
-                                        result.rmse, result.mae, result.silog,
-                                        result.squared_rel, result.irmse,
-                                        result.imae, result.mse, result.absrel,
-                                        result.lg10, result.delta1,
+                ("rank_metric={}\n" + "epoch={}\n" + "rmse={:.3f}\n" + "mae={:.3f}\n" +
+                 "silog={:.3f}\n" + "squared_rel={:.3f}\n" + "irmse={:.3f}\n" + "imae={:.3f}\n" +
+                 "mse={:.3f}\n" + "absrel={:.3f}\n" + "lg10={:.3f}\n" + "delta1={:.3f}\n" +
+                 "t_gpu={:.4f}").format(self.args.rank_metric, epoch, result.rmse, result.mae,
+                                        result.silog, result.squared_rel, result.irmse, result.imae,
+                                        result.mse, result.absrel, result.lg10, result.delta1,
                                         result.gpu_time))
 
     def save_best_txt(self, result, epoch):
@@ -135,12 +118,23 @@ class logger:
             else:
                 return self.output_directory + '/comparison_' + str(epoch) + '.png'
 
-    def conditional_save_img_comparison(self, mode, i, ele, pred, epoch, predrgb=None, predg=None, extra=None, extra2=None, extrargb=None):
+    def conditional_save_img_comparison(self,
+                                        mode,
+                                        i,
+                                        ele,
+                                        pred,
+                                        epoch,
+                                        predrgb=None,
+                                        predg=None,
+                                        extra=None,
+                                        extra2=None,
+                                        extrargb=None):
         # save 8 images for visualization
         if mode == 'val' or mode == 'eval':
             skip = 100
             if i == 0:
-                self.img_merge = vis_utils.merge_into_row(ele, pred, predrgb, predg, extra, extra2, extrargb)
+                self.img_merge = vis_utils.merge_into_row(ele, pred, predrgb, predg, extra, extra2,
+                                                          extrargb)
             elif i % skip == 0 and i < 8 * skip:
                 row = vis_utils.merge_into_row(ele, pred, predrgb, predg, extra, extra2, extrargb)
                 self.img_merge = vis_utils.add_row(self.img_merge, row)
@@ -170,8 +164,7 @@ class logger:
         if ("test" in mode or mode == "eval") and self.args.save_pred:
 
             # save images for visualization/ testing
-            image_folder = os.path.join(self.output_directory,
-                                        mode + "_output")
+            image_folder = os.path.join(self.output_directory, mode + "_output")
             if not os.path.exists(image_folder):
                 os.makedirs(image_folder)
             img = torch.squeeze(pred.data.cpu()).numpy()
@@ -194,17 +187,15 @@ class logger:
               't_GPU={time:.3f}'.format(average=avg, time=avg.gpu_time))
         if is_best and mode == "val":
             print("New best model by %s (was %.3f)" %
-                  (self.args.rank_metric,
-                   self.get_ranking_error(self.old_best_result)))
+                  (self.args.rank_metric, self.get_ranking_error(self.old_best_result)))
         elif mode == "val":
             print("(best %s is %.3f)" %
-                  (self.args.rank_metric,
-                   self.get_ranking_error(self.best_result)))
+                  (self.args.rank_metric, self.get_ranking_error(self.best_result)))
         print("*\n")
 
 
-ignore_hidden = shutil.ignore_patterns(".", "..", ".git*", "*pycache*",
-                                       "*build", "*.fuse*", "*_drive_*")
+ignore_hidden = shutil.ignore_patterns(".", "..", ".git*", "*pycache*", "*build", "*.fuse*",
+                                       "*_drive_*")
 
 
 def backup_source_code(backup_directory):
@@ -215,8 +206,8 @@ def backup_source_code(backup_directory):
 
 def adjust_learning_rate(lr_init, optimizer, epoch, args):
     """Sets the learning rate to the initial LR decayed by 10 every 5 epochs"""
-    #lr = lr_init * (0.5**(epoch // 5))
-    #'''
+    # lr = lr_init * (0.5**(epoch // 5))
+    # '''
     lr = lr_init
     if (args.network_model == 'pe' and args.freeze_backbone == False):
         if (epoch >= 10):
@@ -236,22 +227,22 @@ def adjust_learning_rate(lr_init, optimizer, epoch, args):
             lr = lr_init * 0.1
         if (epoch >= 25):
             lr = lr_init * 0.01
-    #'''
+    # '''
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
 
+
 def save_checkpoint(state, is_best, epoch, output_directory):
-    checkpoint_filename = os.path.join(output_directory,
-                                       'checkpoint-' + str(epoch) + '.pth.tar')
+    checkpoint_filename = os.path.join(output_directory, 'checkpoint-' + str(epoch) + '.pth.tar')
     torch.save(state, checkpoint_filename)
     if is_best:
         best_filename = os.path.join(output_directory, 'model_best.pth.tar')
         shutil.copyfile(checkpoint_filename, best_filename)
     if epoch > 0:
-        prev_checkpoint_filename = os.path.join(
-            output_directory, 'checkpoint-' + str(epoch - 1) + '.pth.tar')
+        prev_checkpoint_filename = os.path.join(output_directory,
+                                                'checkpoint-' + str(epoch - 1) + '.pth.tar')
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
@@ -259,11 +250,11 @@ def save_checkpoint(state, is_best, epoch, output_directory):
 def get_folder_name(args):
     current_time = time.strftime('%Y-%m-%d@%H-%M')
     return os.path.join(args.result,
-        'input={}.criterion={}.lr={}.bs={}.wd={}.jitter={}.time={}'.
-        format(args.input, args.criterion, \
-            args.lr, args.batch_size, args.weight_decay, \
-            args.jitter, current_time
-            ))
+                        'input={}.criterion={}.lr={}.bs={}.wd={}.jitter={}.time={}'.
+                        format(args.input, args.criterion, \
+                               args.lr, args.batch_size, args.weight_decay, \
+                               args.jitter, current_time
+                               ))
 
 
 avgpool = torch.nn.AvgPool2d(kernel_size=2, stride=2).cuda()

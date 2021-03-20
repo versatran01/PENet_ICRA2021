@@ -1,56 +1,52 @@
 import os
 import os.path
+from pathlib import Path
 import glob
-import fnmatch  # pattern matching
 import numpy as np
-from numpy import linalg as LA
 from random import choice
 from PIL import Image
-import torch
 import torch.utils.data as data
-import cv2
-from dataloaders import transforms
-import CoordConv
+from penet.dataloaders import transforms
+from penet.CoordConv import AddCoordsNp
+
 
 input_options = ['d', 'rgb', 'rgbd', 'g', 'gd']
+
+this_file = Path(__file__)
 
 def load_calib():
     """
     Temporarily hardcoding the calibration matrix using calib file from 2011_09_26
     """
-    calib = open("dataloaders/calib_cam_to_cam.txt", "r")
+    calib = open(f"{str(this_file.parent)}/calib_cam_to_cam.txt", "r")
     lines = calib.readlines()
     P_rect_line = lines[25]
 
     Proj_str = P_rect_line.split(":")[1].split(" ")[1:]
-    Proj = np.reshape(np.array([float(p) for p in Proj_str]),
-                      (3, 4)).astype(np.float32)
+    Proj = np.reshape(np.array([float(p) for p in Proj_str]), (3, 4)).astype(np.float32)
     K = Proj[:3, :3]  # camera matrix
 
     # note: we will take the center crop of the images during augmentation
     # that changes the optical centers, but not focal lengths
     # K[0, 2] = K[0, 2] - 13  # from width = 1242 to 1216, with a 13-pixel cut on both sides
     # K[1, 2] = K[1, 2] - 11.5  # from width = 375 to 352, with a 11.5-pixel cut on both sides
-    K[0, 2] = K[0, 2] - 13;
-    K[1, 2] = K[1, 2] - 11.5;
+    K[0, 2] = K[0, 2] - 13
+    K[1, 2] = K[1, 2] - 11.5
     return K
 
 
 def get_paths_and_transform(split, args):
-    assert (args.use_d or args.use_rgb
-            or args.use_g), 'no proper input selected'
+    assert (args.use_d or args.use_rgb or args.use_g), 'no proper input selected'
 
     if split == "train":
         transform = train_transform
         # transform = val_transform
         glob_d = os.path.join(
             args.data_folder,
-            'data_depth_velodyne/train/*_sync/proj_depth/velodyne_raw/image_0[2,3]/*.png'
-        )
+            'train/*_sync/proj_depth/velodyne_raw/image_0[2,3]/*.png')
         glob_gt = os.path.join(
             args.data_folder,
-            'data_depth_annotated/train/*_sync/proj_depth/groundtruth/image_0[2,3]/*.png'
-        )
+            'train/*_sync/proj_depth/groundtruth/image_0[2,3]/*.png')
 
         def get_rgb_paths(p):
             ps = p.split('/')
@@ -66,12 +62,10 @@ def get_paths_and_transform(split, args):
             transform = val_transform
             glob_d = os.path.join(
                 args.data_folder,
-                'data_depth_velodyne/val/*_sync/proj_depth/velodyne_raw/image_0[2,3]/*.png'
-            )
+                'val/*_sync/proj_depth/velodyne_raw/image_0[2,3]/*.png')
             glob_gt = os.path.join(
                 args.data_folder,
-                'data_depth_annotated/val/*_sync/proj_depth/groundtruth/image_0[2,3]/*.png'
-            )
+                'val/*_sync/proj_depth/groundtruth/image_0[2,3]/*.png')
 
             def get_rgb_paths(p):
                 ps = p.split('/')
@@ -86,13 +80,11 @@ def get_paths_and_transform(split, args):
         elif args.val == "select":
             # transform = no_transform
             transform = val_transform
-            glob_d = os.path.join(
-                args.data_folder,
-                "data_depth_selection/val_selection_cropped/velodyne_raw/*.png")
+            glob_d = os.path.join(args.data_folder,
+                                  "depth_selection/val_selection_cropped/velodyne_raw/*.png")
             glob_gt = os.path.join(
                 args.data_folder,
-                "data_depth_selection/val_selection_cropped/groundtruth_depth/*.png"
-            )
+                "depth_selection/val_selection_cropped/groundtruth_depth/*.png")
 
             def get_rgb_paths(p):
                 return p.replace("groundtruth_depth", "image")
@@ -100,19 +92,16 @@ def get_paths_and_transform(split, args):
         transform = no_transform
         glob_d = os.path.join(
             args.data_folder,
-            "data_depth_selection/test_depth_completion_anonymous/velodyne_raw/*.png"
-        )
+            "depth_selection/test_depth_completion_anonymous/velodyne_raw/*.png")
         glob_gt = None  # "test_depth_completion_anonymous/"
-        glob_rgb = os.path.join(
-            args.data_folder,
-            "data_depth_selection/test_depth_completion_anonymous/image/*.png")
+        glob_rgb = os.path.join(args.data_folder,
+                                "depth_selection/test_depth_completion_anonymous/image/*.png")
     elif split == "test_prediction":
         transform = no_transform
         glob_d = None
         glob_gt = None  # "test_depth_completion_anonymous/"
-        glob_rgb = os.path.join(
-            args.data_folder,
-            "data_depth_selection/test_depth_prediction_anonymous/image/*.png")
+        glob_rgb = os.path.join(args.data_folder,
+                                "depth_selection/test_depth_prediction_anonymous/image/*.png")
     else:
         raise ValueError("Unrecognized split " + str(split))
 
@@ -126,8 +115,7 @@ def get_paths_and_transform(split, args):
         paths_rgb = sorted(glob.glob(glob_rgb))
         paths_gt = [None] * len(paths_rgb)
         if split == "test_prediction":
-            paths_d = [None] * len(
-                paths_rgb)  # test_prediction has no sparse depth
+            paths_d = [None] * len(paths_rgb)  # test_prediction has no sparse depth
         else:
             paths_d = sorted(glob.glob(glob_d))
 
@@ -141,12 +129,6 @@ def get_paths_and_transform(split, args):
         raise (RuntimeError("Requested gray images but no rgb was found"))
     if len(paths_rgb) != len(paths_d) or len(paths_rgb) != len(paths_gt):
         print(len(paths_rgb), len(paths_d), len(paths_gt))
-        # for i in range(999):
-        #    print("#####")
-        #    print(paths_rgb[i])
-        #    print(paths_d[i])
-        #    print(paths_gt[i])
-        # raise (RuntimeError("Produced different sizes for datasets"))
     paths = {"rgb": paths_rgb, "d": paths_d, "gt": paths_gt}
     return paths, transform
 
@@ -177,10 +159,12 @@ def depth_read(filename):
     depth = np.expand_dims(depth, -1)
     return depth
 
+
 def drop_depth_measurements(depth, prob_keep):
     mask = np.random.binomial(1, prob_keep, depth.shape)
     depth *= mask
     return depth
+
 
 def train_transform(rgb, sparse, target, position, args):
     # s = np.random.uniform(1.0, 1.5) # random scaling
@@ -206,15 +190,11 @@ def train_transform(rgb, sparse, target, position, args):
         sparse = transform_geometric(sparse)
     target = transform_geometric(target)
     if rgb is not None:
-        brightness = np.random.uniform(max(0, 1 - args.jitter),
-                                       1 + args.jitter)
+        brightness = np.random.uniform(max(0, 1 - args.jitter), 1 + args.jitter)
         contrast = np.random.uniform(max(0, 1 - args.jitter), 1 + args.jitter)
-        saturation = np.random.uniform(max(0, 1 - args.jitter),
-                                       1 + args.jitter)
-        transform_rgb = transforms.Compose([
-            transforms.ColorJitter(brightness, contrast, saturation, 0),
-            transform_geometric
-        ])
+        saturation = np.random.uniform(max(0, 1 - args.jitter), 1 + args.jitter)
+        transform_rgb = transforms.Compose(
+            [transforms.ColorJitter(brightness, contrast, saturation, 0), transform_geometric])
         rgb = transform_rgb(rgb)
     # sparse = drop_depth_measurements(sparse, 0.9)
 
@@ -223,7 +203,7 @@ def train_transform(rgb, sparse, target, position, args):
         position = bottom_crop_only(position)
 
     # random crop
-    #if small_training == True:
+    # if small_training == True:
     if args.not_random_crop == False:
         h = oheight
         w = owidth
@@ -258,6 +238,7 @@ def train_transform(rgb, sparse, target, position, args):
                 position = position[i:i + rheight, j:j + rwidth]
 
     return rgb, sparse, target, position
+
 
 def val_transform(rgb, sparse, target, position, args):
     oheight = args.val_h
@@ -319,8 +300,7 @@ def get_rgb_near(path, args):
     count = 0
     max_frame_diff = 3
     candidates = [
-        i - max_frame_diff for i in range(max_frame_diff * 2 + 1)
-        if i - max_frame_diff != 0
+        i - max_frame_diff for i in range(max_frame_diff * 2 + 1) if i - max_frame_diff != 0
     ]
     while True:
         random_offset = choice(candidates)
@@ -345,9 +325,10 @@ class KittiDepth(data.Dataset):
         self.K = load_calib()
         self.threshold_translation = 0.1
 
-    def __getraw__(self, index):
+    def getraw(self, index):
         rgb = rgb_read(self.paths['rgb'][index]) if \
-            (self.paths['rgb'][index] is not None and (self.args.use_rgb or self.args.use_g)) else None
+            (self.paths['rgb'][index] is not None and (
+                    self.args.use_rgb or self.args.use_g)) else None
         sparse = depth_read(self.paths['d'][index]) if \
             (self.paths['d'][index] is not None and self.args.use_d) else None
         target = depth_read(self.paths['gt'][index]) if \
@@ -355,21 +336,18 @@ class KittiDepth(data.Dataset):
         return rgb, sparse, target
 
     def __getitem__(self, index):
-        rgb, sparse, target = self.__getraw__(index)
-        position = CoordConv.AddCoordsNp(self.args.val_h, self.args.val_w)
+        rgb, sparse, target = self.getraw(index)
+        position = AddCoordsNp(self.args.val_h, self.args.val_w)
         position = position.call()
         rgb, sparse, target, position = self.transform(rgb, sparse, target, position, self.args)
 
         rgb, gray = handle_gray(rgb, self.args)
         # candidates = {"rgb": rgb, "d": sparse, "gt": target, \
         #              "g": gray, "r_mat": r_mat, "t_vec": t_vec, "rgb_near": rgb_near}
-        candidates = {"rgb": rgb, "d": sparse, "gt": target, \
+        candidates = {"rgb": rgb, "d": sparse, "gt": target,
                       "g": gray, 'position': position, 'K': self.K}
 
-        items = {
-            key: to_float_tensor(val)
-            for key, val in candidates.items() if val is not None
-        }
+        items = {key: to_float_tensor(val) for key, val in candidates.items() if val is not None}
 
         return items
 
